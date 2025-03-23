@@ -14,6 +14,49 @@ This project implements a data pipeline to ingest, clean, and serve NYC Yellow T
 
 ![Project Directory Structure](images/project_structure.png)
 
+## Deliverables
+
+### 1. Working Data Pipeline
+
+*   **Automated Process:** The data ingestion and processing pipeline is implemented in the `src/ingest.py` script.  It can be run via Docker Compose:
+
+    ```bash
+    docker-compose up ingest
+    ```
+    This script handles connecting to the simulated SFTP server (running in a separate Docker container), downloading the data files, cleaning and transforming the data, and storing it in the SQLite database.
+
+*   **Robustness and Data Inconsistencies:** The pipeline is designed to be robust and handle various data inconsistencies:
+    *   **SFTP Handling:** The `src/utils.py` file contains the `sftp_transfer` function, which uses the `paramiko` library to connect to the SFTP server. It includes `try...except` blocks to handle potential connection errors, authentication failures, and file transfer issues.
+    *   **File Format Handling:** The `src/ingest.py` script's `load_data` function detects the file type (CSV or JSON) based on the extension and uses the appropriate pandas function (`read_csv` or `read_json`) to load the data. It also handles unsupported file types gracefully.
+    *   **Data Cleaning:**  The `src/utils.py` file's `clean_taxi_data` function performs extensive data cleaning:
+        *   **Column Standardization:**  Column names are converted to lowercase and spaces are replaced with underscores.
+        *   **Data Type Conversion:** Date/time columns are converted to pandas datetime objects, with error handling (`errors='coerce'`).  Integer columns are converted to pandas' nullable integer type (`Int64`).
+        *   **Missing Value Handling:** Missing values are handled in several ways:
+            *   `passenger_count` is imputed using the median.
+            *   Other numeric columns are filled with -1.
+            *   String columns are filled with "UNKNOWN".
+        *   **Duplicate Removal:**  `drop_duplicates()` removes duplicate rows.
+        *   **Invalid Data Filtering:** Rows with invalid data (e.g., zero trip distance, pickup time after dropoff time) are removed.
+        *   **Outlier Removal:** The Interquartile Range (IQR) method is used to remove outliers in `trip_distance` and `fare_amount`.
+        *   **String Consistency:**  The `store_and_fwd_flag` column is converted to uppercase and standardized.
+    *   **Chunking:** The `load_data` function reads the data in chunks (using the `chunksize` parameter) to prevent out-of-memory errors when processing large files.
+    *   **Error Logging:** The `loguru` library is used throughout the `ingest.py` and `utils.py` scripts to log errors and warnings, providing detailed information for debugging.
+    * **Exception Handling:** The code contains several try/except block to catch potential exceptions.
+    * **Database interactions:** Commitments are made after each row, preventing partial insertions. Rollbacks are done if an insertion fails.
+*   **Curated Datasets:** The `store_data` function in `src/ingest.py` inserts the cleaned and transformed data into the `taxi_trips` table in the SQLite database (`data/processed/taxi_data.db`).  This table represents the curated dataset, ready for consumption by business users. The use of Pydantic models (`src/models.py`) helps ensure data consistency and provides a clear schema for the curated data.
+
+### 2. API with Documentation
+
+*   **Functional API:** The `src/api.py` script implements a FastAPI application that provides a `/taxi_trips/` endpoint for retrieving the processed data.
+*   **Date-Based Filtering:** The API supports filtering by date range using the `start_date` and `end_date` query parameters (ISO 8601 format: `YYYY-MM-DDTHH:MM:SS`).
+*   **Cursor-Based Pagination:** The API implements cursor-based pagination using the `cursor` and `limit` query parameters.  The `next_cursor` and `has_more` fields in the response provide information for retrieving subsequent pages of data.
+*   **API Key Authentication:** The API includes basic API key authentication using the `api_key` query parameter. A placeholder key (`your_secret_api_key`) is used in the provided code; this should be replaced with a strong, randomly generated key in a production environment.
+*   **Rate Limiting:** The API is rate-limited to 100 requests per minute using the `slowapi` library. This prevents abuse and ensures the API remains responsive.
+*   **Documentation:** FastAPI automatically generates interactive API documentation using Swagger UI, accessible at `http://localhost:8000/docs`.  This documentation includes:
+    *   A list of available endpoints.
+    *   Descriptions of each endpoint, including parameters and response formats.
+    *   Interactive "Try it out" functionality to test the API directly from the browser.
+   
 ## Setup and Usage
 
 **Prerequisites:**
