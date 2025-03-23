@@ -1,4 +1,5 @@
 pandas
+numpy
 #pyspark
 paramiko
 fastapi

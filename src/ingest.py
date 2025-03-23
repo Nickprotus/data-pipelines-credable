@@ -36,6 +36,7 @@ class TaxiTripDB(Base):
     total_amount = Column(Float)
     congestion_surcharge = Column(Float)
     airport_fee = Column(Float)
+    trip_duration = Column(Float)
 
 
 Base.metadata.create_all(engine)  # Create tables

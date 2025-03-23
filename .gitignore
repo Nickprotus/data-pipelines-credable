@@ -1,7 +1,7 @@
 # .gitignore
 __pycache__/
 .DS_Store
-logs/
+logs/*.log
 myenv/
 *.pyc
 data/processed/*.db

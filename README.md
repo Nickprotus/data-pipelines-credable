@@ -1,200 +1,183 @@
-# Data Engineering: Data Pipeline and API Challenge
+# Credable Data Pipeline
 
-This project implements a scalable data pipeline that ingests data from a simulated SFTP location, processes it, and provides access through a FastAPI API with date-based filtering and cursor-based pagination.
+This project implements a data pipeline to ingest, clean, and serve NYC Yellow Taxi trip data. It demonstrates core data engineering concepts, including:
+
+*   **Data Acquisition:** Simulates data retrieval from a remote SFTP server.
+*   **Data Ingestion:** Loads data from CSV and JSON files into a SQLite database.
+*   **Data Cleaning:** Performs comprehensive data cleaning, including handling missing values, outliers, data type conversions, and consistency checks.
+*   **Data Transformation:** Calculates a new feature (`trip_duration`).
+*   **Data Serving:** Provides a REST API to query the data, with pagination and filtering.
+*   **Containerization:** Uses Docker and Docker Compose for a reproducible environment.
+*   **Testing:** Includes unit tests for the data cleaning and API components.
 
 ## Project Structure
 
-## Assumptions and Technologies
-
-*   **Environment:**  Assumes a Linux-based server environment (suitable for Docker).
-*   **SFTP Simulation:** Simulates an SFTP server locally using a directory (`data/raw` initially populated, then `data/sftp_upload` for Dockerized SFTP) and Docker.
-*   **Data Source:** Uses publicly available NYC Taxi and Limousine Commission (TLC) Trip Record Data (Yellow Taxi Trip Records). Specifically, January and February 2023 data, converted to CSV and JSON formats. Download Parquet files from: [https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
-*   **Programming Language:** Python 3.9
-*   **API Framework:** FastAPI
-*   **Database:** SQLite (for simplicity; production would use PostgreSQL, MySQL, etc.)
-*   **SFTP Library:** Paramiko
-*   **Data Processing:** Pandas
-*   **Data Validation:** Pydantic
-*   **Logging:** Loguru
-*   **Rate Limiting:** Slowapi
-*   **Version Control:** Git (and GitHub/GitLab/Bitbucket)
-*   **Containerization:** Docker, docker-compose
-
-## Data Pipeline Stages
-
-1.  **Data Ingestion (`src/ingest.py`, `src/utils.py`):**
-    *   Connects to a simulated SFTP server (running in a Docker container) using `paramiko`.
-    *   Retrieves files (CSV and JSON) from the specified remote directory.
-    *   Handles `FileNotFoundError` and other potential `paramiko` exceptions.  Logs errors using `loguru`.
-
-2.  **Data Processing (`src/ingest.py`, `src/utils.py`, `src/models.py`):**
-    *   Loads data from CSV/JSON using pandas (`read_csv` and `read_json`), handling potential file errors.
-    *   **Data Cleaning (`utils.py`):**
-        *   Standardizes column names (lowercase, underscores).
-        *   Converts date/time columns to pandas datetime objects.
-        *   Handles missing values (fills numeric with -1, strings with "UNKNOWN").
-        *   Removes duplicate rows.
-        *   Filters out invalid data (e.g., zero/negative trip distance).
-    *   **Data Validation (`models.py`):** Defines a `TaxiTrip` Pydantic model to ensure data consistency.
-    *   **Data Storage (`ingest.py`):**
-        *   Creates an SQLite database (`data/processed/taxi_data.db`) using SQLAlchemy.
-        *   Defines a `TaxiTripDB` SQLAlchemy model mirroring the Pydantic model.
-        *   Inserts cleaned data into the database, committing after each row and handling potential database errors (with rollback).
-    *   **Chunking:** Reads and processes data in chunks to avoid out-of-memory errors.
-
-3.  **API Development (`src/api.py`):**
-    *   Creates a FastAPI application.
-    *   Defines a `/taxi_trips/` endpoint.
-    *   **Filtering:**
-        *   `start_date`: Optional query parameter (ISO 8601 format).
-        *   `end_date`: Optional query parameter (ISO 8601 format).
-    *   **Pagination:**
-        *   `cursor`: Optional query parameter (ID of the last retrieved record).
-        *   `limit`: Optional query parameter (defaults to 100, max 500).
-    *   **Security:**
-        *   Basic API key authentication (`api_key` query parameter).
-    *   **Rate Limiting:** Limits requests to 100 per minute using `slowapi`.
-    *   **Documentation:** Automatically generates interactive API documentation (Swagger UI) at `/docs` and ReDoc at `/redoc`.
-    *   **Response Model:** Uses a `TaxiTripResponse` Pydantic model for consistent API responses.
+data_pipeline_project/
+├── data/
+│   ├── raw/          <- (Empty initially.  Simulates downloaded data)
+│   ├── processed/    <- (Contains the SQLite database)
+│   └── sftp_upload/  <- (Contains the small CSV/JSON files for the repo)
+├── logs/          <- (Empty initially, log files from the ingestion)
+├── myenv         <- (Created by you, contains virtual env)
+├── src/
+│   ├── api.py        <- (FastAPI application)
+│   ├── ingest.py     <- (Data ingestion and database interaction)
+│   ├── models.py     <- (Pydantic and SQLAlchemy models)
+│   └── utils.py      <- (Data cleaning and SFTP utility functions)
+├── tests/
+│   ├── test_api.py
+│   └── test_ingest.py
+├── .gitignore
+├── convert_data.py  <- (Script to create smaller CSV/JSON files)
+├── docker-compose.yml
+├── Dockerfile
+├── README.md       <- (This file)
+└── requirements.txt
 
 ## Setup and Usage
 
 **Prerequisites:**
 
-*   Python 3.9+
-*   pip
-*   Git
-*   Docker
-*   Docker Compose
+*   Docker and Docker Compose installed.
 
 **Steps:**
 
-1.  **Clone the Repository:**
+1.  **Clone the repository:**
 
     ```bash
-    git clone <your_repository_url>  # Replace with your repository URL
-    cd data_pipeline_project
+    git clone <repository_url>
+    cd <repository_directory>
     ```
 
-2.  **Download and Prepare Data (Initial Setup - Only Once):**
-
-    *   Download Yellow Taxi Trip Records (Parquet format) for January and February 2023 from [https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page).  Save *outside* the project.
-    *   Create a `convert_data.py` script *outside* the project:
-
-        ```python
-        # convert_data.py (Outside the project directory)
-        import pandas as pd
-        import sys
-
-        def convert_parquet(parquet_file):
-            try:
-                df = pd.read_parquet(parquet_file)
-                csv_file = parquet_file.replace(".parquet", ".csv")
-                json_file = parquet_file.replace(".parquet", ".json")
-                df.to_csv(csv_file, index=False)
-                df.to_json(json_file, orient="records")
-                print(f"Converted {parquet_file} to CSV and JSON.")
-            except Exception as e:
-                print(f"Error converting {parquet_file}: {e}")
-
-        if __name__ == "__main__":
-            if len(sys.argv) > 1:
-                for parquet_file in sys.argv[1:]:
-                    convert_parquet(parquet_file)
-            else:
-                print("Please provide Parquet file paths as arguments.")
-        ```
-
-    *   Run `convert_data.py` to create CSV and JSON files:
-        ```bash
-        python convert_data.py yellow_tripdata_2023-01.parquet yellow_tripdata_2023-02.parquet
-        ```
-
-    *   Move the CSV and JSON files to `data/sftp_upload/`:
-         ```bash
-         mv yellow_tripdata_2023-0*.csv data_pipeline_project/data/sftp_upload/
-         mv yellow_tripdata_2023-0*.json data_pipeline_project/data/sftp_upload/
-
-         ```
-
-3.  **Build and Run (Docker Compose):**
+2.  **Build and Run the Pipeline:**
 
     ```bash
     docker-compose up --build
     ```
-    This builds the Docker images (if necessary) and starts all services (SFTP server, ingestion, API).
+    This command does the following:
+    *   Builds the Docker images for the `ingest` and `api` services.
+    *   Starts the `sftp_server`, `ingest`, and `api` containers.
+    *   The `ingest` service:
+        *   Downloads (simulates) the CSV and JSON data files from the `sftp_server` to the `data/raw` directory.
+        *   Cleans and processes the data.
+        *   Stores the cleaned data in the `data/processed/taxi_data.db` SQLite database.
+    *   The `api` service starts a FastAPI server, accessible at `http://localhost:8000`.
 
-4.  **Access the API:**
 
-    *   Open `http://127.0.0.1:8000/docs` in your browser for the interactive API documentation.
+3. **Access the API:**
+   Once the `api` service is running, you can access it at `http://localhost:8000`.  The API provides a `/taxi_trips/` endpoint that supports:
+    *   **Pagination:**  Use the `cursor` and `limit` query parameters.
+    *   **Filtering:**  Use the `start_date` and `end_date` query parameters (format: `YYYY-MM-DDTHH:MM:SS`).
+    *   **Rate Limiting:** The API is rate-limited to 100 requests per minute.
+    * **API key authentication** To access the data you have to provide an `api_key`. The default value is `your_secret_api_key`.
 
-5.  **API Usage Examples:**
+    **Example API Calls:**
 
-    *   **Get all data (first 100 records):**
-        ```
-        [http://127.0.0.1:8000/taxi_trips/?api_key=your_secret_api_key](http://127.0.0.1:8000/taxi_trips/?api_key=your_secret_api_key)
-        ```
+    *   Get the first 100 trips:
 
-    *   **Date filtering:**
-        ```
-        [http://127.0.0.1:8000/taxi_trips/?start_date=2023-01-01T00:00:00&end_date=2023-01-15T23:59:59&api_key=your_secret_api_key](http://127.0.0.1:8000/taxi_trips/?start_date=2023-01-01T00:00:00&end_date=2023-01-15T23:59:59&api_key=your_secret_api_key)
-        ```
-
-    *   **Pagination:**
-        ```
-        [http://127.0.0.1:8000/taxi_trips/?limit=50&api_key=your_secret_api_key](http://127.0.0.1:8000/taxi_trips/?limit=50&api_key=your_secret_api_key)
-        ```
-        (Get the `next_cursor` from the response, then use it:)
-        ```
-        [http://127.0.0.1:8000/taxi_trips/?limit=50&cursor=](http://127.0.0.1:8000/taxi_trips/?limit=50&cursor=)<next_cursor_value>&api_key=your_secret_api_key
-        ```
-
-    *   **`curl` example:**
         ```bash
-        curl -X 'GET' \
-          '[http://127.0.0.1:8000/taxi_trips/?start_date=2023-01-01T00:00:00&end_date=2023-01-05T00:00:00&api_key=your_secret_api_key](https://www.google.com/search?q=http://127.0.0.1:8000/taxi_trips/%3Fstart_date%3D2023-01-01T00:00:00%26end_date%3D2023-01-05T00:00:00%26api_key%3Dyour_secret_api_key)' \
-          -H 'accept: application/json'
+        curl "http://localhost:8000/taxi_trips/?api_key=your_secret_api_key&limit=100"
         ```
-      **Important:** Replace `your_secret_api_key` with the actual key you set in `src/api.py`.
 
-6.  **Running Individual Services:**
+    *   Get trips between specific dates:
 
-    *   **Ingestion only:**  `docker-compose up ingest --build`
-    *   **API only:** `docker-compose up api --build`
+        ```bash
+        curl "http://localhost:8000/taxi_trips/?api_key=your_secret_api_key&start_date=2023-01-05T10:00:00&end_date=2023-01-10T12:00:00"
+        ```
+    *   Get the next page of results (using the `next_cursor` from the previous response):
 
-7.  **Stopping Services:**
+        ```bash
+         curl "http://localhost:8000/taxi_trips/?api_key=your_secret_api_key&cursor=12345&limit=100" #Replace 12345
+
+        ```
+
+4.  **Stop the Services:**
 
     ```bash
     docker-compose down
     ```
 
-8.  **Running Tests:**
+## Data Source
 
-    ```bash
-    pytest
-    ```
+The project uses a *reduced* version of the NYC Yellow Taxi trip record data for January and February 2023.  The full dataset is available from the TLC Trip Record Data website: [https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page).
 
-## Configuration
+**Reduced Dataset:**
 
-*   **API Key:**  Change `API_KEY` in `src/api.py`.  **Do not commit secrets to version control.**  Use environment variables in production.
-*   **SFTP Credentials:**  SFTP settings are hardcoded in `src/ingest.py` *for the simulation*.  In a real deployment, use a configuration file (e.g., `config.py`) or environment variables.
-*   **Database URL:** `DATABASE_URL` in `src/ingest.py` points to a local SQLite file.  Change this for production (PostgreSQL, MySQL, etc.).
+To comply with GitHub's file size limits, the CSV and JSON files in the `data/sftp_upload` directory contain only a subset (the first 200,000 rows) of the original data.
 
-## Error Handling and Logging
+**To use the full dataset (locally):**
 
-*   Uses `loguru` for logging.  Logs are written to `logs/ingest.log`.
-*   `try...except` blocks handle potential errors in SFTP, data loading, cleaning, and database operations.
-*   The API returns appropriate HTTP status codes (401 for invalid API key, 422 for validation errors, 500 for internal server errors).  Rate limiting returns 429.
+1.  Download the Parquet files for January and February 2023 from the TLC website.
+2.  Place the downloaded Parquet files in the project's root directory.
+3.  Run `python convert_data.py yellow_tripdata_2023-01.parquet yellow_tripdata_2023-02.parquet`. This will not limit the rows, using the original files.
+4.  Move the generated CSV and JSON files to the `data/sftp_upload/` directory, overwriting the existing (smaller) files.
+5. Remove the `taxi_data.db` file.
+6. Re-run `docker-compose up --build`.  This will ingest the full dataset.  *Note: This will take significantly longer.*
 
-## Improvements and Future Enhancements
+## Data Cleaning and Transformation
 
-*   **Authentication:** Use OAuth 2.0 or a similar robust system.
-*   **Configuration:** Use a config file or environment variables.
-*   **Asynchronous Tasks:** Use Celery for long-running ingestion.
-*   **Database:** Switch to PostgreSQL or MySQL for production.
-*   **Data Validation:** Add more comprehensive validation rules.
-*   **Monitoring:** Integrate with Prometheus, Grafana, etc.
-*   **Dead-Letter Queue:** Store failed records for reprocessing.
-*   **Schema Evolution:** Plan for handling changes to the data schema.
-*   **Caching:**  Implement caching for frequently accessed data.
-* **Orchestration:** Use Airflow or a similar tool.
+The `src/utils.py` file contains the `clean_taxi_data` function, which performs the following data cleaning steps:
+
+1.  **Column Standardization:** Converts column names to lowercase and replaces spaces with underscores.
+2.  **Date/Time Conversion:** Parses date/time columns, converting invalid values to `NaT`.
+3.  **Missing Value Handling:**
+    *   Imputes missing `passenger_count` values with the median.
+    *   Fills missing numeric columns with -1.
+    *   Fills missing string columns with "UNKNOWN".
+4.  **Duplicate Removal:** Removes duplicate rows.
+5.  **Invalid Data Filtering:** Removes rows with:
+    *   Zero or negative `trip_distance`.
+    *   Zero or negative `fare_amount`.
+    *  `tpep_pickup_datetime` after `tpep_dropoff_datetime`.
+6.  **Outlier Removal:**  Uses the Interquartile Range (IQR) method to remove outliers from `trip_distance` and `fare_amount`.
+7.  **Data Type Consistency:** Ensures integer columns use pandas' nullable integer type (`Int64`).
+8.  **String Value Handling:** Standardizes the `store_and_fwd_flag` column to uppercase ('N' or 'Y').
+9.  **Feature Engineering:** Creates a new `trip_duration` column (in minutes).
+
+## Database Schema
+
+The project uses a SQLite database (`data/processed/taxi_data.db`).  The database contains a single table, `taxi_trips`, with the following schema:
+
+| Column Name            | Data Type | Description                                                                                                                                         |
+| :--------------------- | :-------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | INTEGER   | Primary key, auto-incrementing.                                                                                                                      |
+| `vendor_id`            | BIGINT   | A code indicating the TPEP provider that provided the record.                                                                                        |
+| `tpep_pickup_datetime` | DATETIME  | The date and time when the meter was engaged.                                                                                                         |
+| `tpep_dropoff_datetime`| DATETIME  | The date and time when the meter was disengaged.                                                                                                       |
+| `passenger_count`      | BIGINT    | The number of passengers in the vehicle.                                                                                                            |
+| `trip_distance`        | FLOAT     | The elapsed trip distance in miles reported by the taximeter.                                                                                        |
+| `rate_code_id`         | BIGINT     | The final rate code in effect at the end of the trip.                                                                                              |
+| `store_and_fwd_flag`   | TEXT      | This flag indicates whether the trip record was held in vehicle memory before sending to the vendor, aka “store and forward,” because the vehicle did not have a connection to the server. |
+| `pu_location_id`       | BIGINT    | TLC Taxi Zone in which the taximeter was engaged.                                                                                                 |
+| `do_location_id`       | BIGINT   | TLC Taxi Zone in which the taximeter was disengaged.                                                                                               |
+| `payment_type`         | BIGINT     | A numeric code signifying how the passenger paid for the trip.                                                                                   |
+| `fare_amount`          | FLOAT     | The time-and-distance fare calculated by the meter.                                                                                                 |
+| `extra`                | FLOAT     | Miscellaneous extras and surcharges.                                                                                                               |
+| `mta_tax`              | FLOAT     | $0.50 MTA tax that is automatically triggered based on the metered rate in use.                                                                       |
+| `tip_amount`           | FLOAT     | Tip amount – This field is automatically populated for credit card tips. Cash tips are not included.                                                  |
+| `tolls_amount`         | FLOAT     | Total amount of all tolls paid in trip.                                                                                                              |
+| `improvement_surcharge`| FLOAT     | $0.30 improvement surcharge assessed trips at the flag drop.                                                                                     |
+| `total_amount`         | FLOAT     | The total amount charged to passengers. Does not include cash tips.                                                                                    |
+| `congestion_surcharge` | FLOAT     | Total amount collected in trip for NYS congestion surcharge.                                                                                          |
+| `airport_fee`          | FLOAT     | $1.25 for pick up only at LaGuardia and John F. Kennedy Airports.                                                                                     |
+| `trip_duration`        | FLOAT     | Calculated trip duration in minutes.                                                                                                                 |
+
+## Limitations
+
+*   **Reduced Dataset:** The repository includes a reduced dataset for demonstration purposes due to file size limits. Instructions are provided to use the full dataset locally.
+*   **Simplified SFTP Simulation:** The SFTP server is simulated using Docker for ease of setup. A real-world pipeline would connect to an actual SFTP server.
+*   **SQLite Database:** SQLite is used for simplicity and portability.  A production system would likely use a more robust database like PostgreSQL or MySQL.
+* **Single table database**: The database contains a single table. For a production ready solution, a relational database, with multiple tables may be needed.
+
+## Potential Improvements
+
+*   **Full Dataset Integration:** Integrate Git LFS to handle the full dataset within the repository.
+*   **Database Migrations:** Implement database migrations (e.g., using Alembic) for schema changes.
+*   **More Sophisticated Error Handling:**  Implement more robust error handling, including retries, dead-letter queues, and alerting.
+*   **Configuration Management:** Use a configuration file (e.g., YAML) to manage settings like database URLs, API keys, and SFTP credentials.
+*   **Data Validation:** Add more comprehensive data validation rules.
+*   **Automated tests:** Implement automated tests to assert the validation rules.
+*   **Performance Optimization:** Optimize database queries and data loading for performance.
+*   **Monitoring and Logging:** Implement more detailed monitoring and logging, potentially using a dedicated logging framework.
+* **Asynchronous Tasks** Use celery for example to perform tasks asynchronously.
+* **Add Authentication to the API** Implement a more robust authentication.

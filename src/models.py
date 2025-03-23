@@ -23,6 +23,7 @@ class TaxiTrip(BaseModel):
     total_amount: Optional[float] = None
     congestion_surcharge: Optional[float] = None
     airport_fee: Optional[float] = None
+    trip_duration: Optional[float] = None
 
     class Config:
         from_attributes = True 
