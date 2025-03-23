@@ -1,0 +1,39 @@
+# docker-compose.yml (Used for SFTP server simulation)
+services:
+  sftp_server:
+    image: atmoz/sftp
+    platform: linux/amd64 
+    ports:
+      - "2222:22"  # Map host port 2222 to container port 22
+    volumes:
+      - ./data/sftp_upload:/home/testuser/upload  # Mount a local directory for file uploads
+    command: testuser:testpassword:1001
+    networks:
+      - my_network
+  ingest:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      depends_on:
+        - sftp_server
+      volumes:
+        - .:/app
+      command: python src/ingest.py
+      networks:
+        - my_network
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - ingest
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
+    networks:
+      - my_network
+networks:
+  my_network:
+    driver: bridge

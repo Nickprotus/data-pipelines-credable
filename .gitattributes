@@ -1,0 +1,14 @@
+data/raw/*.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/*.json filter=lfs diff=lfs merge=lfs -text
+logs/*.log filter=lfs diff=lfs merge=lfs -text
+\# filter=lfs diff=lfs merge=lfs -text
+ALL filter=lfs diff=lfs merge=lfs -text
+log filter=lfs diff=lfs merge=lfs -text
+the filter=lfs diff=lfs merge=lfs -text
+logs filter=lfs diff=lfs merge=lfs -text
+directory filter=lfs diff=lfs merge=lfs -text
+Track filter=lfs diff=lfs merge=lfs -text
+files filter=lfs diff=lfs merge=lfs -text
+in filter=lfs diff=lfs merge=lfs -text
+myenv/lib/python3.11/site-packages/pyspark/jars/rocksdbjni-8.3.2.jar filter=lfs diff=lfs merge=lfs -text
+data/processed/*.db filter=lfs diff=lfs merge=lfs -text

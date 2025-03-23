@@ -1,0 +1,13 @@
+pandas
+#pyspark
+paramiko
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+loguru
+python-dateutil
+slowapi
+pytest
+requests
+httpx
