@@ -11,26 +11,8 @@ This project implements a data pipeline to ingest, clean, and serve NYC Yellow T
 *   **Testing:** Includes unit tests for the data cleaning and API components.
 
 ## Project Structure
-'''
-data_pipeline_project/
-├── data/
-│   ├── raw/          <- (Empty initially.  Simulates downloaded data)
-│   ├── processed/    <- (Contains the SQLite database)
-│   └── sftp_upload/  <- (Contains the small CSV/JSON files for the repo)
-├── logs/          <- (Empty initially, log files from the ingestion)
-├── myenv         <- (Created by you, contains virtual env)
-├── src/
-│   ├── api.py        <- (FastAPI application)
-│   ├── ingest.py     <- (Data ingestion and database interaction)
-│   ├── models.py     <- (Pydantic and SQLAlchemy models)
-│   └── utils.py      <- (Data cleaning and SFTP utility functions)
-├── .gitignore
-├── convert_data.py  <- (Script to create smaller CSV/JSON files)
-├── docker-compose.yml
-├── Dockerfile
-├── README.md      
-└── requirements.txt
-'''
+
+![Project Directory Structure](images/project_structure.png)
 
 ## Setup and Usage
 
