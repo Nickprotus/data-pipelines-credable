@@ -73,59 +73,6 @@ def sftp_transfer(sftp_host: str, sftp_port: int, sftp_user: str, sftp_pass: str
         logger.error(f"General Error during SFTP transfer: {e}")
         raise
 
-
-# def simulate_sftp(file_paths: List[str], destination_dir: str):
-#     """Simulates retrieving files from an SFTP server."""
-#     os.makedirs(destination_dir, exist_ok=True)
-#     for file_path in file_paths:
-#         try:
-#             # Copy the file locally.
-#             destination_path = os.path.join(destination_dir, os.path.basename(file_path))
-#             # Check if the source file exists
-#             if os.path.exists(file_path):
-#                 os.system(f"cp {file_path} {destination_path}")  # Use system copy
-#                 logger.info(f"Simulated SFTP transfer: {file_path} -> {destination_path}")
-#             else:
-#                 logger.error(f"Source file not found: {file_path}")
-
-
-#         except Exception as e:
-#             logger.error(f"SFTP Simulation Error: {e}")
-#             # In production, send an alert (email, Slack, etc.)
-
-
-# def clean_taxi_data(df: pd.DataFrame) -> pd.DataFrame:
-#     """Cleans the taxi trip data."""
-
-#     # Standardize column naming
-#     df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-
-#     # Convert date/time columns
-#     date_cols = ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
-#     for col in date_cols:
-#         if col in df.columns:  # Check if column exists
-#             try:
-#                 df[col] = pd.to_datetime(df[col])
-#             except (ValueError, TypeError) as e:
-#                 logger.warning(f"Error converting column {col} to datetime: {e}.  Setting to NaT.")
-#                 df[col] = pd.NaT  # Set invalid dates to NaT (Not a Time)
-#         else:
-#             logger.warning(f"Column {col} not found in DataFrame.")
-
-#     # Handle missing values
-#     for col in df.select_dtypes(include=['number']):
-#         df[col] = df[col].fillna(-1)  # Numeric columns: fill with -1
-#     for col in df.select_dtypes(include=['object']):
-#         df[col] = df[col].fillna("UNKNOWN") # String columns: fill with "UNKNOWN"
-
-#     # Remove duplicates
-#     df = df.drop_duplicates()
-
-#     # Filter out invalid data (example)
-#     df = df[df['trip_distance'] > 0]
-#     df = df[df['fare_amount'] > 0]
-#     return df
-
 def clean_taxi_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Cleans and prepares the NYC Taxi trip data.
@@ -206,7 +153,7 @@ def clean_taxi_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 7. Ensure correct types after imputation
     if 'vendorid' in df.columns:
-        df['vendorid'] = df['vendorid'].astype('Int64')  # Use pandas nullable integer type
+        df['vendorid'] = df['vendorid'].astype('Int64') 
     if 'passenger_count' in df.columns:
       df['passenger_count'] = df['passenger_count'].astype('Int64')
     if 'ratecodeid' in df.columns:
